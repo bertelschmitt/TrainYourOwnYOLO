@@ -145,6 +145,42 @@ If you would like to file an issue, please use the provided issue template and m
 
 Issues without a completed issue template will be deleted after 7 days. 
 
++*Like everything new, YOLO can have a steep learning curve. Here is the beginning of a hopefully growing list of articles that help us ease into the matter.*
+## VOTT's up: Tips & Tricks
+Good object detection rides on a good model, and a good model needs to be babied to grow up strong and smart. An essential tool for the care and feeding of your custom model is VOTT, a free app that lets you annotate objects in pictures. Say you want to train your model on balls. You look for many pictures containing balls. You pull them into VOTT, and you then manually draw a box around each ball, and assign the tag “ball” to it. Next time you train your model, it will be having a ball. VOTT is written in TypeScript/JavaScript, and it should run on Windows, Linux, and OSX. VOTT has a few rough edges, and the (at the time of this writing) latest release, v2.1, is from April 2019. VOTT can be [downloaded here](https://github.com/Microsoft/VoTT/releases).
+VOTT can be a little temperamentful, so here are a few tips to make it woerk for you:
+#### 1. Thou shalt have only one VOTT
+
+You may be used to starting apps with a double-click of the mouse (or a few more clicks if the computer is a bit slow.) Start VOTT only with one click. Why? More clicks can start more instances of VOTT, and when you do that, all hell tends to break loose. Suddenly, you can’t find your project. You “open local project” and VOTT complains about not finding a security token, all because you are working with a 2nd instance of VOTT. In your desperation, you create a new project, and the work of tagging hundreds of pictures is down the drain. So next time, start one and only VOTT. And VOTT developers, how about preventing a 2nd instance?
+
+#### 2. Let your fingers do the tagging
+
+Tagging goes much faster with one hand on the mouse, and with the other hand on the keyboard, assigning tags. You have keys from [0] to [9]. If you have more than 10 tags, then you can make a tag hotkeyable by moving the tag into the 10 tags with key numbers. For that, select a tag, and use the up-arrow/down-arrow buttons to move the tags around. Don’t worry, the sequence of tags does not matter until the images are shipped to YOLO for training. Oh, and be careful. Tagging now is so easy that I can (and occasionally do)  assign hundreds of wrong tags by hitting the wrong key. See below.  
+
+#### 3. Use “Active Learning”
+
+VOTT's "Active Learning" isn't really learning much. It tries to detect what you want to tag in a picture, and when it does, it draws a grey box around it to spare you the aggravation of moving your mouse. You then assign the proper tag. You need to do this rather quickly. If you wait too long, VOTT will think you drew a box without assigning a tag. Then, VOTT will turn into a mule, and it will refuse to move at all. Hit the DEL key to delete the box you never drew, and the mule will move again.  Active Learning is hit and miss, sometimes it works, sometimes not. Active Learning can also try to guess the tag, but I turned that feature off quickly. Allegedly, you can feed your custom model to VOTT to put detection on steroids, but the Internet is full of people who want to know how, and who never receive an answer. Active Learning seems to work a little better when tagging videos, which leads us to … 
+
+#### 4. Tagging videos
+Tagging videos instead of still pictures tends to produce faster and better results, especially when you use video taken with the same camera, and from the same angle as later used for detection. For that, you can pull the video file into VOTT, and then tag frame by frame. With “Active Learning” cooperating, you can tag along quite briskly. 
+
+Sometimes, mule VOTT will refuse to ingest the video you have fed it. This happens when the video is produced with a CODEC VOTT doesn’t like. I had problems with videos created by YOLO with the h.264 CODEC. I tried a few CODECs with ffmpeg (a handy command-line tool) and VOTT balked, until I converted the h.264 video produced by YOLO into a new video converted by ffmpeg employing the, drumroll, h.264 CODEC, apparently, a subtly different h.264 vintage. Go figure, but keep trying. For enhanced training, I coerced YOLO into making videos that have a bounding box in every odd video frame, and no box in every even frame. Running this video through VOTT, I can now see where YOLO has low, or no detection results, and on the next frame, I can draw a box and tag it to give YOLO some help at the next training round. To produce that kind of videos involves changes to the YOLO code, and it is beyond the scope of this article. Ask if you want to know how it’s done. 
+
+#### 5. Care and filing
+
+Models are a living thing, they start small, and they need help to become big and powerful. You will probably re-train more than a few times, and the more pictures you add, the better the model usually gets. For that, it is best practice to keep just one directory as the output connection in VOTT, and let the images and output file grow. This way, when you later add to your model, VOTT will dump more images into the vott-csv-export directory, and it will update the export file. 
+
+By default, VOTT will output a JSON file, which YOLO can’t use, it wants a CSV file. Set VOTT’s Export Settings to “Comma Separated Values (CSV)” and the Asset State to “Only Tagged Assets,” and select “Include Images.” That way, the vott-csv-export directory, a subdirectory created in your Target Connection, will fill with images, and in the same directory, a CSV file will be created that has information about the tagged clips and their coordinates within the images. Treat this file carefully, it is a record of all of your hard work, and this file is what YOLO needs for learning. YOLO expects that file to be named “Annotations-export.csv.” That will be its out-of-the-box name, as long as you call your VOTT project “Annotations.” If you call your great project “My_great_project,” then My_great_project.csv will be created, and you either have to rename the file before training, or you will have to tell YOLO via the command line to look for My_great_project.csv. Feed both to YOLO for training, and it will munch on it for hours, if not days.
+
+#### 6. Advanced VOTT pruning
+What if you want to add to your model, but you have already created a new project in VOTT that ended in a new *-export.csv file? Now you need to do some manual pruning. Open the newly created *-export.csv file, and add it to the end of your master Annotations-export.csv file by whatever means necessary (text editor, Excel, cat My_great_project.csv >> Annotations-export.csv …) Make sure the images dumped by VOTT into the vott-csv-export directory (you did select “Include Images,” did you?) go into the vott-csv-export directory used by YOLO for training. It is easy, but because of that, we can also mess up royally. 
+
+In late-night sessions, I once produced thousands of duplicate entries YOLO valiantly tried to catch. That confused me even more, because now, YOLO reported thousands fewer pictures as ingested. It took me weeks to find out where the “missing” images went. Then, there was a nastier input mistake. Somehow, I tagged a few hundred images twice, but with different tags. YOLO dutifully recognized them as no duplicates, it used both tags for the same images, and you can imagine what that did to the quality (or not) of the model. So before blaming the garbage model, let’s remember GIGO, and check for garbage fed to the machine. I did this by throwing together a few lines of code that cross-referenced the Annotations-export.csv file with the data_train.txt file that gets produced when starting Convert_to_YOLO_format.py (don’t forget running that, or YOLO will happily re-train the old model.)
+
+*That’s enough tricks and VOTT-not for today. What tricks do you have? Don’t keep them up your sleeve, share them in a message, or add them to the document.* 
+
+
+
 ## Stay Up-to-Date
 
 - ⭐ **star** this repo to get notifications on future improvements and
